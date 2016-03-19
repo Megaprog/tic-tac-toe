@@ -12,7 +12,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.Collection;
-import java.util.Optional;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Component
 public class Router {
@@ -20,8 +22,12 @@ public class Router {
 
     public static final String JSON_MIME_TYPE = "application/json";
 
+    protected Map<String, AsyncController> controllers;
+
     @Autowired
-    Collection<AsyncController> controllers;
+    public void setControllers(Collection<AsyncController> controllers) {
+        this.controllers = controllers.stream().collect(Collectors.toMap(AsyncController::getType, Function.<AsyncController>identity()));
+    }
 
     public void reply(HttpServerRequest request) {
 
@@ -51,18 +57,20 @@ public class Router {
                 responseJson.put("response", requestType);
 
                 final JsonObject requestData = requestJson.getJsonObject("data");
-                responseJson.put("source", requestData);
+                if (requestData != null) {
+                    responseJson.put("source", requestData);
+                }
 
-                final Optional<AsyncController> controllerOpt = controllers.stream().filter(controller -> controller.getType().equals(requestType)).findAny();
-                if (!controllerOpt.isPresent()) {
+                final AsyncController controller = controllers.get(requestType);
+                if (controller == null) {
                     log.warn("Controller for request type " + requestType + " is not found");
                     writeJson(request.response(), 404, responseJson);
                     return;
                 }
 
-                log.debug("Routed to " + controllerOpt.get());
+                log.debug("Routed to " + controller);
 
-                controllerOpt.get().response(requestData).whenComplete(((response, throwable) -> {
+                controller.response(requestData).whenComplete(((response, throwable) -> {
                     if (throwable != null) {
                         writeException(request.response(), throwable, responseJson);
                     } else {
