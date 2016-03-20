@@ -10,7 +10,7 @@ import org.springframework.stereotype.Controller;
 import java.util.concurrent.CompletableFuture;
 
 @Controller
-public class StartGameController implements AsyncController {
+public class GameInfoController implements AsyncController {
 
     @Autowired
     GameService gameService;
@@ -20,23 +20,17 @@ public class StartGameController implements AsyncController {
 
     @Override
     public String getType() {
-        return "start";
+        return "info";
     }
 
     @Override
     public CompletableFuture<JsonObject> response(JsonObject request) {
-        return gameService.registration(validator.validateName(request.getString("name"))).thenApply(result -> {
+        return gameService.findGameByPlayer(validator.validateName(request.getString("name"))).thenApply(gameOpt -> {
             final JsonObject jsonObject = new JsonObject();
-            jsonObject.put("result", result.getValue0());
 
-            switch (result.getValue0()) {
-                case Wait:
-                case Preparing:
-                    break;
-                case GameStarted:
-                    jsonObject.put("game", new JsonObject(Json.encode(result.getValue1())));
-                    break;
-            }
+            jsonObject.put("result", gameOpt.map(game -> game.getResult1() == null || game.getResult2() == null ? "in_progress" : "finished")
+                    .orElseGet(() -> "not_found"));
+            gameOpt.ifPresent(game -> jsonObject.put("game", new JsonObject(Json.encode(game))));
 
             return jsonObject;
         });

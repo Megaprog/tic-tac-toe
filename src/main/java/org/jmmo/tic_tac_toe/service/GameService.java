@@ -58,7 +58,7 @@ public class GameService {
                         ).thenApply(rs -> Pair.<RegistrationResult, Game>with(RegistrationResult.Wait, null))));
             } else {
                 if (updateResult.getUUID("game") != null) {
-                    return findGame(updateResult.getUUID("game")).thenApply(game -> Pair.with(RegistrationResult.GameStarted, game));
+                    return findGameById(updateResult.getUUID("game")).thenApply(game -> Pair.with(RegistrationResult.GameStarted, game));
                 } else {
                     return CompletableFuture.completedFuture(Pair.with(RegistrationResult.Preparing, null));
                 }
@@ -107,8 +107,14 @@ public class GameService {
         )).thenApply(resultSet -> game);
     }
 
-    public CompletableFuture<Game> findGame(UUID gameId) {
+    public CompletableFuture<Game> findGameById(UUID gameId) {
         return cassandra.selectOneAsync(Game.class, gameId).thenApply(gameOpt -> gameOpt
                 .<RuntimeException>orElseThrow(() -> new IllegalArgumentException("Game " + gameId + " is not found")));
+    }
+
+    public CompletableFuture<Optional<Game>> findGameByPlayer(String name) {
+        return cassandra.selectOneAsync(Player.class, name).thenCompose(playerOpt ->
+                playerOpt.map(Player::getGame).map(gameId -> findGameById(gameId).thenApply(Optional::of))
+                        .orElseGet(() -> CompletableFuture.completedFuture(Optional.<Game>empty())));
     }
 }

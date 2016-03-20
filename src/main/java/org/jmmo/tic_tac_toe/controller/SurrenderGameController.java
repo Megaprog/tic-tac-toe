@@ -15,6 +15,6 @@ public class SurrenderGameController implements AsyncController {
 
     @Override
     public CompletableFuture<JsonObject> response(JsonObject request) {
-        return CompletableFuture.completedFuture(new JsonObject());
+        throw new UnsupportedOperationException();
     }
 }
