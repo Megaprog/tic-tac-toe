@@ -3,8 +3,10 @@ package org.jmmo.tic_tac_toe.service;
 import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Row;
 import com.datastax.driver.core.TupleType;
+import com.datastax.driver.core.TupleValue;
 import com.datastax.driver.core.querybuilder.QueryBuilder;
 import org.javatuples.Pair;
+import org.jetbrains.annotations.Nullable;
 import org.jmmo.sc.Cassandra;
 import org.jmmo.tic_tac_toe.model.Game;
 import org.jmmo.tic_tac_toe.model.Pending;
@@ -13,17 +15,17 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
-import java.util.Date;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
+import java.util.stream.IntStream;
 
 @Service
 public class GameService {
+    public static final int MAX_X = 2;
+    public static final int MAX_Y = 2;
 
     @Autowired
     Cassandra cassandra;
@@ -43,6 +45,14 @@ public class GameService {
     static final int CANDIDATES_LIMIT = 20;
     static final int CANDIDATES_ATTEMPTS = 2;
     static final long MOVE_TIMEOUT = (int) TimeUnit.MINUTES.toMillis(3);
+
+    public int getMaxX() {
+        return MAX_X;
+    }
+
+    public int getMaxY() {
+        return MAX_Y;
+    }
 
     public enum RegistrationResult {
         Wait, Preparing, GameStarted, GameFinished
@@ -154,5 +164,81 @@ public class GameService {
         } else {
             return false;
         }
+    }
+
+    public enum MoveResult {
+        Ok, NoGame, GameFinished, OutOfTurn, BadMove
+    }
+
+    public CompletableFuture<Pair<MoveResult, Game>> move(String name, Pair<Integer, Integer> move) {
+        return findGameByPlayer(name).thenCompose(gameOpt -> gameOpt.map(game -> {
+            if (game.isFinished()) {
+                return CompletableFuture.completedFuture(Pair.with(MoveResult.GameFinished, game));
+            }
+            if (!name.equals(game.getNextPlayer())) {
+                return CompletableFuture.completedFuture(Pair.with(MoveResult.OutOfTurn, game));
+            }
+
+            final int[][] board = constructBoard(game.getMoves());
+            if (board[move.getValue0()][move.getValue1()] != 0) {
+                return CompletableFuture.completedFuture(Pair.with(MoveResult.BadMove, game));
+            }
+
+            final List<TupleValue> newMoves = game.getMoves() != null ? game.getMoves() : new ArrayList<>();
+            newMoves.add(coordsTupleType.newValue(move.toArray()));
+            game.setMoves(newMoves);
+            board[move.getValue0()][move.getValue1()] = playerByMoveNumber(newMoves.size() + 1);
+
+            final int winner = checkWinner(board);
+            if (winner == 1) {
+                game.setResult1(Game.Result.Win);
+                game.setResult2(Game.Result.Loss);
+            } else if (winner == 2) {
+                game.setResult1(Game.Result.Loss);
+                game.setResult2(Game.Result.Win);
+            } else if (newMoves.size() == (getMaxX() + 1) * (getMaxY() + 1)) {
+                game.setResult1(Game.Result.Draw);
+                game.setResult2(Game.Result.Draw);
+            }
+
+            game.setTime(dateSupplier.get());
+
+            return cassandra.insertAsync(game).thenApply(resultSet -> Pair.with(MoveResult.Ok, game));
+        }).orElseGet(() -> CompletableFuture.completedFuture(Pair.<MoveResult, Game>with(MoveResult.NoGame, null))));
+    }
+
+    protected int[][] constructBoard(@Nullable List<TupleValue> coords) {
+        final int[][] board = new int[getMaxX() + 1][getMaxY() + 1];
+
+        final List<TupleValue> finalCoords = coords != null ? coords : Collections.<TupleValue>emptyList();
+        IntStream.range(0, finalCoords.size()).forEach(i -> board[finalCoords.get(i).getInt(0)][finalCoords.get(i).getInt(1)] = playerByMoveNumber(i));
+
+        return board;
+    }
+
+    protected int playerByMoveNumber(int moveNumber) {
+        return (moveNumber % 2) + 1;
+    }
+
+    protected int checkWinner(int[][] board) {
+        return IntStream.rangeClosed(1, 2).filter(player -> checkWinner(board, player)).findAny().orElse(0);
+    }
+
+    protected boolean checkWinner(int[][] board, int player) {
+        return checkWinner(board, player, 0, 0, 1, 0) || checkWinner(board, player, 0, 0, 0, 1) || checkWinner(board, player, 0, 0, 1, 1)
+                || checkWinner(board, player, getMaxX(), 0, 0, 1) || checkWinner(board, player, 0, getMaxY(), 1, 0) || checkWinner(board, player, getMaxX(), 0, -1, 1);
+    }
+
+    protected boolean checkWinner(int[][] board, int player, int x, int y, int dx, int dy) {
+        while (x >= 0 && x <= getMaxX() && y >= 0 && y <= getMaxY()) {
+            if (board[x][y] != player) {
+                return false;
+            }
+
+            x += dx;
+            y += dy;
+        }
+
+        return true;
     }
 }

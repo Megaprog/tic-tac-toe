@@ -2,9 +2,11 @@ package org.jmmo.tic_tac_toe.model;
 
 import com.datastax.driver.core.TupleValue;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import org.jetbrains.annotations.Nullable;
 import org.jmmo.sc.annotation.Key;
 import org.jmmo.sc.annotation.Table;
+import org.jmmo.tic_tac_toe.json.TupleToCoordinatesSerializer;
 
 import java.util.Date;
 import java.util.List;
@@ -32,7 +34,7 @@ public class Game {
     @Nullable
     private Result result2;
 
-    @JsonInclude(JsonInclude.Include.NON_NULL)
+    @JsonSerialize(contentUsing = TupleToCoordinatesSerializer.class)
     @Nullable
     private List<TupleValue> moves;
 

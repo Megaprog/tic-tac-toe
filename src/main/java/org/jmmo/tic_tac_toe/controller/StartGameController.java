@@ -19,15 +19,8 @@ public class StartGameController extends NameAwareController {
         return gameService.registration(name).thenApply(result -> {
             final JsonObject jsonObject = new JsonObject();
             jsonObject.put("result", result.getValue0());
-
-            switch (result.getValue0()) {
-                case Wait:
-                case Preparing:
-                    break;
-                case GameStarted:
-                case GameFinished:
-                    jsonObject.put("game", new JsonObject(Json.encode(result.getValue1())));
-                    break;
+            if (result.getValue1() != null) {
+                jsonObject.put("game", new JsonObject(Json.encode(result.getValue1())));
             }
 
             return jsonObject;
