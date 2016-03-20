@@ -1,9 +1,11 @@
 package org.jmmo.tic_tac_toe.config;
 
-import org.springframework.context.annotation.ComponentScan;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Import;
-import org.springframework.context.annotation.PropertySource;
+import org.springframework.context.annotation.*;
+
+import java.time.Instant;
+import java.util.Date;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.Supplier;
 
 @Configuration
 @PropertySource("classpath:application.properties")
@@ -13,4 +15,14 @@ import org.springframework.context.annotation.PropertySource;
         "org.jmmo.tic_tac_toe"
 })
 public class AppConfig {
+
+    @Bean
+    public Supplier<Date> dateSupplier() {
+        return () -> Date.from(Instant.now());
+    }
+
+    @Bean
+    public Supplier<ThreadLocalRandom> randomSupplier() {
+        return ThreadLocalRandom::current;
+    }
 }

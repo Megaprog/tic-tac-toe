@@ -8,5 +8,5 @@ public interface AsyncController {
 
     String getType();
 
-    CompletableFuture<Response> response(JsonObject request);
+    CompletableFuture<JsonObject> response(JsonObject request);
 }

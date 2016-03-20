@@ -6,6 +6,7 @@ import io.vertx.core.http.HttpServerRequest;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.json.JsonObject;
 import org.jmmo.tic_tac_toe.controller.AsyncController;
+import org.jmmo.tic_tac_toe.validate.GameException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,12 +14,13 @@ import org.springframework.stereotype.Component;
 
 import java.util.Collection;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Component
 public class Router {
-    private Logger log = LoggerFactory.getLogger(Router.class);
+    private static final Logger log = LoggerFactory.getLogger(Router.class);
 
     public static final String JSON_MIME_TYPE = "application/json";
 
@@ -56,10 +58,8 @@ public class Router {
                 final String requestType = requestJson.getString("request");
                 responseJson.put("response", requestType);
 
-                final JsonObject requestData = requestJson.getJsonObject("data");
-                if (requestData != null) {
-                    responseJson.put("source", requestData);
-                }
+                final JsonObject requestData = Optional.ofNullable(requestJson.getJsonObject("data")).orElseGet(JsonObject::new);
+                responseJson.put("source", requestData);
 
                 final AsyncController controller = controllers.get(requestType);
                 if (controller == null) {
@@ -72,22 +72,30 @@ public class Router {
 
                 controller.response(requestData).whenComplete(((response, throwable) -> {
                     if (throwable != null) {
-                        writeException(request.response(), throwable, responseJson);
+                        handleException(throwable, request.response(), responseJson);
                     } else {
-                        log.debug(response.toString());
+                        log.debug("Response: " + response);
 
-                        if (response.getData() != null) {
-                            responseJson.put("data", response.getData());
+                        if (response != null) {
+                            responseJson.put("data", response);
                         }
 
-                        writeJson(request.response(), response.isSuccess() ? 200 : 400, responseJson);
+                        writeJson(request.response(), 200, responseJson);
                     }
                 }));
             }
             catch (Exception e) {
-                writeException(request.response(), e, responseJson);
+                handleException(e, request.response(), responseJson);
             }
         });
+    }
+
+    public void handleException(Throwable throwable, HttpServerResponse response, JsonObject jsonObject) {
+        if (throwable instanceof GameException) {
+            writeJson(response, 400, jsonObject.put("error", throwable.getMessage()));
+        } else {
+            writeException(response, throwable, jsonObject);
+        }
     }
 
     public void writeJson(HttpServerResponse response, int statusCode, JsonObject jsonObject) {
@@ -98,6 +106,6 @@ public class Router {
 
     public void writeException(HttpServerResponse response, Throwable throwable, JsonObject jsonObject) {
         log.error("Exception during routing", throwable);
-        writeJson(response, 500, jsonObject.put("error", Throwables.getStackTraceAsString(throwable)));
+        writeJson(response, 500, jsonObject.put("exception", Throwables.getStackTraceAsString(throwable)));
     }
 }
