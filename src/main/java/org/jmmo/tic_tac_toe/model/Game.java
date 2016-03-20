@@ -2,17 +2,16 @@ package org.jmmo.tic_tac_toe.model;
 
 import com.datastax.driver.core.TupleValue;
 import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import org.jetbrains.annotations.Nullable;
 import org.jmmo.sc.annotation.Key;
 import org.jmmo.sc.annotation.Table;
-import org.jmmo.tic_tac_toe.json.TupleToCoordinatesSerializer;
 
 import java.util.Date;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
+@JsonInclude(JsonInclude.Include.NON_NULL)
 @Table("game")
 public class Game {
 
@@ -28,14 +27,11 @@ public class Game {
 
     private Date time;
 
-    @JsonInclude(JsonInclude.Include.NON_NULL)
     @Nullable
     private Result result1;
-    @JsonInclude(JsonInclude.Include.NON_NULL)
     @Nullable
     private Result result2;
 
-    @JsonSerialize(contentUsing = TupleToCoordinatesSerializer.class)
     @JsonInclude(JsonInclude.Include.NON_NULL)
     @Nullable
     private List<TupleValue> moves;
@@ -107,6 +103,22 @@ public class Game {
 
     public void setMoves(@Nullable List<TupleValue> moves) {
         this.moves = moves;
+    }
+
+    public boolean isFinished() {
+        return getResult1() != null && getResult2() != null;
+    }
+
+    @Nullable
+    public String getNextPlayer() {
+        if (isFinished()) {
+            return null;
+        }
+        else if (getMoves() == null || getMoves().size() % 2 == 0) {
+            return getPlayer1();
+        } else {
+            return getPlayer2();
+        }
     }
 
     @Override

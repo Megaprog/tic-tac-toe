@@ -7,20 +7,22 @@ import org.springframework.stereotype.Controller;
 import java.util.concurrent.CompletableFuture;
 
 @Controller
-public class GameInfoController extends NameAwareController {
+public class NewGameController extends NameAwareController {
 
     @Override
     public String getType() {
-        return "info";
+        return "new";
     }
 
     @Override
     protected CompletableFuture<JsonObject> response(String name, JsonObject request) {
-        return gameService.findGameByPlayer(name).thenApply(gameOpt -> {
+        return gameService.newGame(name).thenApply(result -> {
             final JsonObject jsonObject = new JsonObject();
 
-            jsonObject.put("result", gameOpt.isPresent());
-            gameOpt.ifPresent(game -> jsonObject.put("game", new JsonObject(Json.encode(game))));
+            jsonObject.put("result", result.getValue0());
+            if (result.getValue1() != null) {
+                jsonObject.put("game", new JsonObject(Json.encode(result.getValue1())));
+            }
 
             return jsonObject;
         });

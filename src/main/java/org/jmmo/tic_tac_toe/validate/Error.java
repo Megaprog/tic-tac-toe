@@ -4,7 +4,7 @@ public enum Error {
 
     UNKNOWN,
     BAD_NAME,
-    NO_GAME
+    GAME_NOT_FINISHED
     ;
 
     public GameException getException() {

@@ -6,15 +6,15 @@ import org.springframework.stereotype.Controller;
 import java.util.concurrent.CompletableFuture;
 
 @Controller
-public class SurrenderGameController extends NameAwareController {
+public class MoveController extends NameAwareController {
 
     @Override
     public String getType() {
-        return "surrender";
+        return "move";
     }
 
     @Override
     protected CompletableFuture<JsonObject> response(String name, JsonObject request) {
-        throw new UnsupportedOperationException();
+        return null;
     }
 }

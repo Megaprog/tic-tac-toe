@@ -1,6 +1,8 @@
 package org.jmmo.tic_tac_toe.config;
 
 import com.datastax.driver.core.Cluster;
+import com.datastax.driver.core.DataType;
+import com.datastax.driver.core.TupleType;
 import org.apache.cassandra.service.EmbeddedCassandraService;
 import org.jmmo.sc.Cassandra;
 import org.jmmo.sc.EntityPool;
@@ -42,6 +44,11 @@ public class PersistenceConfig {
         }
 
         return cassandra;
+    }
+
+    @Bean
+    public TupleType coordsTupleType(Cassandra cassandra) {
+        return cassandra.getSession().getCluster().getMetadata().newTupleType(DataType.cint(), DataType.cint());
     }
 
     public Cassandra createCassandra(String ...contactPoints) {

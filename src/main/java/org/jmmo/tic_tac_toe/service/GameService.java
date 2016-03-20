@@ -2,6 +2,7 @@ package org.jmmo.tic_tac_toe.service;
 
 import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Row;
+import com.datastax.driver.core.TupleType;
 import com.datastax.driver.core.querybuilder.QueryBuilder;
 import org.javatuples.Pair;
 import org.jmmo.sc.Cassandra;
@@ -9,6 +10,7 @@ import org.jmmo.tic_tac_toe.model.Game;
 import org.jmmo.tic_tac_toe.model.Pending;
 import org.jmmo.tic_tac_toe.model.Player;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 import java.util.Date;
@@ -27,21 +29,23 @@ public class GameService {
     Cassandra cassandra;
 
     @Autowired
+    @Qualifier("coordsTupleType")
+    TupleType coordsTupleType;
+
+    @Autowired
     Supplier<Date> dateSupplier;
 
     @Autowired
     Supplier<ThreadLocalRandom> randomSupplier;
 
     static final int PLAYER_LOCK_TTL = 60;
-    static final int PLAYER_GAME_TTL = (int) TimeUnit.MINUTES.toSeconds(5);
-    static final int PENDING_TTL = (int) TimeUnit.MINUTES.toSeconds(3);
+    static final int PENDING_TTL = (int) TimeUnit.MINUTES.toSeconds(5);
     static final int CANDIDATES_LIMIT = 20;
     static final int CANDIDATES_ATTEMPTS = 2;
-    static final int GAME_TTL = (int) TimeUnit.HOURS.toSeconds(24);
-    static final int MOVE_TIMEOUT = (int) TimeUnit.MINUTES.toSeconds(3);
+    static final long MOVE_TIMEOUT = (int) TimeUnit.MINUTES.toMillis(3);
 
     public enum RegistrationResult {
-        Wait, Preparing, GameStarted
+        Wait, Preparing, GameStarted, GameFinished
     }
 
     public CompletableFuture<Pair<RegistrationResult, Game>> registration(String name) {
@@ -58,7 +62,8 @@ public class GameService {
                         ).thenApply(rs -> Pair.<RegistrationResult, Game>with(RegistrationResult.Wait, null))));
             } else {
                 if (updateResult.getUUID("game") != null) {
-                    return findGameById(updateResult.getUUID("game")).thenApply(game -> Pair.with(RegistrationResult.GameStarted, game));
+                    return findGameById(updateResult.getUUID("game")).thenApply(game -> Pair.with(
+                            game.isFinished() ? RegistrationResult.GameFinished : RegistrationResult.GameStarted, game));
                 } else {
                     return CompletableFuture.completedFuture(Pair.with(RegistrationResult.Preparing, null));
                 }
@@ -101,20 +106,53 @@ public class GameService {
         final Game game = new Game(UUID.randomUUID(), dice ? player1 : player2, dice ? player2 : player1, dateSupplier.get());
 
         return cassandra.executeAsync(QueryBuilder.batch(
-                cassandra.insertQuery(game).using(QueryBuilder.ttl(GAME_TTL)),
-                cassandra.insertQuery(new Player(player1, null, game.getId())).using(QueryBuilder.ttl(PLAYER_GAME_TTL)),
-                cassandra.insertQuery(new Player(player2, null, game.getId())).using(QueryBuilder.ttl(PLAYER_GAME_TTL))
+                cassandra.insertQuery(game),
+                cassandra.insertQuery(new Player(player1, null, game.getId())),
+                cassandra.insertQuery(new Player(player2, null, game.getId()))
         )).thenApply(resultSet -> game);
     }
 
     public CompletableFuture<Game> findGameById(UUID gameId) {
         return cassandra.selectOneAsync(Game.class, gameId).thenApply(gameOpt -> gameOpt
-                .<RuntimeException>orElseThrow(() -> new IllegalArgumentException("Game " + gameId + " is not found")));
+                .<RuntimeException>orElseThrow(() -> new IllegalArgumentException("Game " + gameId + " is not found")))
+                .thenCompose(game -> {
+                    if (checkTimeout(game)) {
+                        return cassandra.insertAsync(game).thenApply(resultSet -> game);
+                    } else {
+                        return CompletableFuture.completedFuture(game);
+                    }
+                });
     }
 
     public CompletableFuture<Optional<Game>> findGameByPlayer(String name) {
         return cassandra.selectOneAsync(Player.class, name).thenCompose(playerOpt ->
                 playerOpt.map(Player::getGame).map(gameId -> findGameById(gameId).thenApply(Optional::of))
                         .orElseGet(() -> CompletableFuture.completedFuture(Optional.<Game>empty())));
+    }
+
+    public CompletableFuture<Pair<Boolean, Game>> newGame(String name) {
+        return findGameByPlayer(name).thenCompose(gameOpt -> gameOpt.map(game -> {
+            if (!game.isFinished()) {
+                return CompletableFuture.completedFuture(Pair.with(false, game));
+            }
+
+            return cassandra.insertAsync(new Player(name, null, null)).thenApply(resultSet -> Pair.with(true, game));
+        }).orElseGet(() -> CompletableFuture.completedFuture(Pair.<Boolean, Game>with(true, null))));
+    }
+
+    protected boolean checkTimeout(Game game) {
+        if (!game.isFinished() && dateSupplier.get().getTime() - game.getTime().getTime() > MOVE_TIMEOUT) {
+            final String looser = game.getNextPlayer();
+            if (game.getPlayer1().equals(looser)) {
+                game.setResult1(Game.Result.Timeout);
+                game.setResult2(Game.Result.Win);
+            } else {
+                game.setResult1(Game.Result.Win);
+                game.setResult2(Game.Result.Timeout);
+            }
+            return true;
+        } else {
+            return false;
+        }
     }
 }
