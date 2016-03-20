@@ -3,6 +3,8 @@ package org.jmmo.tic_tac_toe.controller;
 import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonObject;
 import org.javatuples.Pair;
+import org.jmmo.tic_tac_toe.service.GameService;
+import org.jmmo.tic_tac_toe.validate.*;
 import org.springframework.stereotype.Controller;
 
 import java.util.concurrent.CompletableFuture;
@@ -19,13 +21,11 @@ public class MoveController extends NameAwareController {
     protected CompletableFuture<JsonObject> response(String name, JsonObject request) {
         final JsonObject moveJson = request.getJsonObject("move", new JsonObject());
         return gameService.move(name, validator.validateMove(Pair.with(moveJson.getInteger("x"), moveJson.getInteger("y")))).thenApply(result -> {
-            final JsonObject jsonObject = new JsonObject();
-            jsonObject.put("result", result.getValue0());
-            if (result.getValue1() != null) {
-                jsonObject.put("game", new JsonObject(Json.encode(result.getValue1())));
+            if (result.getValue0() != GameService.MoveResult.Ok) {
+                throw new GameException(result.getValue0().toString());
             }
 
-            return jsonObject;
+            return new JsonObject().put("game", new JsonObject(Json.encode(result.getValue1())));
         });
     }
 }

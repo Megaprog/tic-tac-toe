@@ -2,6 +2,7 @@ package org.jmmo.tic_tac_toe.controller;
 
 import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonObject;
+import org.jmmo.tic_tac_toe.validate.Error;
 import org.springframework.stereotype.Controller;
 
 import java.util.concurrent.CompletableFuture;
@@ -17,12 +18,11 @@ public class GameInfoController extends NameAwareController {
     @Override
     protected CompletableFuture<JsonObject> response(String name, JsonObject request) {
         return gameService.findGameByPlayer(name).thenApply(gameOpt -> {
-            final JsonObject jsonObject = new JsonObject();
+            if (!gameOpt.isPresent()) {
+                throw Error.GameNotFound.getException();
+            }
 
-            jsonObject.put("result", gameOpt.isPresent());
-            gameOpt.ifPresent(game -> jsonObject.put("game", new JsonObject(Json.encode(game))));
-
-            return jsonObject;
+            return new JsonObject().put("game", new JsonObject(Json.encode(gameOpt.get())));
         });
     }
 }

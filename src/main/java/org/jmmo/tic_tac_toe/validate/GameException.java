@@ -1,10 +1,13 @@
 package org.jmmo.tic_tac_toe.validate;
 
 public class GameException extends RuntimeException {
-    private final Error error;
+    private Error error = Error.Unknown;
 
     public GameException() {
-        this(Error.UNKNOWN);
+    }
+
+    public GameException(String message) {
+        super(message);
     }
 
     public GameException(Error error) {
@@ -17,6 +20,6 @@ public class GameException extends RuntimeException {
 
     @Override
     public String getMessage() {
-        return getError().toString();
+        return getError() != Error.Unknown || super.getMessage() == null ? getError().toString() : super.getMessage();
     }
 }

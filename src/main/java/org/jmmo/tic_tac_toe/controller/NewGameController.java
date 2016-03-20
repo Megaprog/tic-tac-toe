@@ -18,7 +18,7 @@ public class NewGameController extends NameAwareController {
     protected CompletableFuture<JsonObject> response(String name, JsonObject request) {
         return gameService.newGame(name).thenApply(result -> {
             if (!result.getValue0()) {
-                throw Error.GAME_NOT_FINISHED.getException();
+                throw Error.GameNotFinished.getException();
             }
 
             return null;

@@ -2,10 +2,11 @@ package org.jmmo.tic_tac_toe.validate;
 
 public enum Error {
 
-    UNKNOWN,
-    BAD_NAME,
-    GAME_NOT_FINISHED,
-    OUT_OF_BOARD
+    Unknown,
+    BadName,
+    GameNotFound,
+    GameNotFinished,
+    OutOfBoard
     ;
 
     public GameException getException() {
