@@ -15,6 +15,7 @@ import org.springframework.stereotype.Component;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletionException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -91,6 +92,10 @@ public class Router {
     }
 
     public void handleException(Throwable throwable, HttpServerResponse response, JsonObject jsonObject) {
+        while (throwable instanceof CompletionException) {
+            throwable = throwable.getCause();
+        }
+
         if (throwable instanceof GameException) {
             writeJson(response, 400, jsonObject.put("error", throwable.getMessage()));
         } else {
