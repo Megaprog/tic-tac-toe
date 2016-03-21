@@ -4,7 +4,7 @@ import org.javatuples.Pair;
 import org.jmmo.tic_tac_toe.AbstractPersistenceIT;
 import org.jmmo.tic_tac_toe.config.PersistenceConfig;
 import org.jmmo.tic_tac_toe.model.Game;
-import org.jmmo.tic_tac_toe.model.Pending;
+import org.jmmo.tic_tac_toe.model.Claim;
 import org.jmmo.tic_tac_toe.model.Player;
 import org.junit.Before;
 import org.junit.Test;
@@ -14,7 +14,7 @@ import java.util.UUID;
 
 import static org.junit.Assert.*;
 
-public class GameServiceIT extends AbstractPersistenceIT {
+public class GameServiceTest extends AbstractPersistenceIT {
 
     @Autowired
     GameService gameService;
@@ -27,8 +27,8 @@ public class GameServiceIT extends AbstractPersistenceIT {
     @Test
     public void testRegistration() throws Exception {
         assertEquals(Pair.with(GameService.RegistrationResult.Wait, null), gameService.registration("p1").get());
-        Pending pending = cassandra.selectOne(Pending.class, Pending.KEY).get();
-        assertEquals("p1", pending.getName());
+        Claim claim = cassandra.selectOne(Claim.class, Claim.KEY).get();
+        assertEquals("p1", claim.getName());
 
         Pair<GameService.RegistrationResult, Game> registration = gameService.registration("p2").get();
         assertEquals(GameService.RegistrationResult.GameStarted, registration.getValue0());
@@ -38,6 +38,8 @@ public class GameServiceIT extends AbstractPersistenceIT {
         assertEquals(testDateSupplier.get(), registration.getValue1().getTime());
         assertEquals(new Player("p1", null, registration.getValue1().getId()), cassandra.selectOne(Player.class, "p1").get());
         assertEquals(new Player("p2", null, registration.getValue1().getId()), cassandra.selectOne(Player.class, "p2").get());
+
+        assertEquals(0, cassandra.select(Claim.class, Claim.KEY).count());
 
         cassandra.insert(new Player("p3", UUID.randomUUID(), null));
         assertEquals(Pair.with(GameService.RegistrationResult.Preparing, null), gameService.registration("p3").get());

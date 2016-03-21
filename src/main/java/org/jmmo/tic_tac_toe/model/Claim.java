@@ -6,9 +6,9 @@ import org.jmmo.sc.annotation.Table;
 import java.util.Date;
 import java.util.Objects;
 
-@Table("pending")
-public class Pending {
-    public static final String KEY = "pending_players";
+@Table("claim")
+public class Claim {
+    public static final String KEY = "claim_of_the_player";
 
     @Key(1)
     private String key = KEY;
@@ -17,10 +17,10 @@ public class Pending {
     @Key(3)
     private String name;
 
-    public Pending() {
+    public Claim() {
     }
 
-    public Pending(Date time, String name) {
+    public Claim(Date time, String name) {
         this.time = time;
         this.name = name;
     }
@@ -57,7 +57,7 @@ public class Pending {
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        Pending that = (Pending) o;
+        Claim that = (Claim) o;
         return Objects.equals(key, that.key) &&
                 Objects.equals(time, that.time) &&
                 Objects.equals(name, that.name);
@@ -70,7 +70,7 @@ public class Pending {
 
     @Override
     public String toString() {
-        return "Pending{" +
+        return "Claim{" +
                 "time=" + time +
                 ", name='" + name + '\'' +
                 '}';

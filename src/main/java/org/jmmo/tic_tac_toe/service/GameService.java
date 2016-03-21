@@ -4,15 +4,17 @@ import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Row;
 import com.datastax.driver.core.TupleType;
 import com.datastax.driver.core.TupleValue;
+import com.datastax.driver.core.querybuilder.Batch;
 import com.datastax.driver.core.querybuilder.QueryBuilder;
 import org.javatuples.Pair;
 import org.jetbrains.annotations.Nullable;
 import org.jmmo.sc.Cassandra;
 import org.jmmo.tic_tac_toe.model.Game;
-import org.jmmo.tic_tac_toe.model.Pending;
+import org.jmmo.tic_tac_toe.model.Claim;
 import org.jmmo.tic_tac_toe.model.Player;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -40,11 +42,19 @@ public class GameService {
     @Autowired
     Supplier<ThreadLocalRandom> randomSupplier;
 
+    @Value("${ttt.game.randomSides:true}")
+    boolean randomSides;
+
+    @Value("${ttt.game.moveTimeout:180}")
+    int moveTimeoutSec;
+
+    @Value("${ttt.game.claimTTL:30}")
+    int claimTTL;
+
     static final int PLAYER_LOCK_TTL = 60;
-    static final int PENDING_TTL = (int) TimeUnit.MINUTES.toSeconds(5);
     static final int CANDIDATES_LIMIT = 20;
     static final int CANDIDATES_ATTEMPTS = 2;
-    static final long MOVE_TIMEOUT = (int) TimeUnit.MINUTES.toMillis(3);
+    static final int CLEARING_CLAIMS_LIMIT = 50;
 
     public int getMaxX() {
         return MAX_X;
@@ -67,7 +77,7 @@ public class GameService {
                 return findContender(name).thenCompose(contenderOpt -> contenderOpt.map(contender -> createGame(name, contender)
                         .thenApply(game -> Pair.with(RegistrationResult.GameStarted, game)))
                         .orElseGet(() -> cassandra.executeAsync(QueryBuilder.batch(
-                                        cassandra.insertQuery(new Pending(dateSupplier.get(), name)).using(QueryBuilder.ttl(PENDING_TTL)),
+                                        cassandra.insertQuery(new Claim(dateSupplier.get(), name)).using(QueryBuilder.ttl(claimTTL)),
                                         cassandra.deleteQuery(player))
                         ).thenApply(rs -> Pair.<RegistrationResult, Game>with(RegistrationResult.Wait, null))));
             } else {
@@ -88,18 +98,18 @@ public class GameService {
     }
 
     public CompletableFuture<Optional<String>> findContender(String name) {
-        return cassandra.selectAsync(Pending.class, where -> where.limit(CANDIDATES_LIMIT), Pending.KEY)
+        return cassandra.selectAsync(Claim.class, where -> where.limit(CANDIDATES_LIMIT), Claim.KEY)
                 .thenCompose(candidates -> {
                     candidates.removeIf(candidate -> candidate.getName().equals(name));
                     return selectContender(candidates, CANDIDATES_ATTEMPTS);
                 });
     }
 
-    protected CompletableFuture<Optional<String>> selectContender(List<Pending> candidates, int attempts) {
+    protected CompletableFuture<Optional<String>> selectContender(List<Claim> candidates, int attempts) {
         if (attempts == 0 || candidates.isEmpty()) {
             return CompletableFuture.completedFuture(Optional.<String>empty());
         } else {
-            final Pending candidate = candidates.get(randomSupplier.get().nextInt(candidates.size()));
+            final Claim candidate = candidates.get(randomSupplier.get().nextInt(candidates.size()));
             return lockPlayer(new Player(candidate.getName(), UUID.randomUUID(), null)).thenCompose(resultSet -> {
                 if (cassandra.isApplied(resultSet)) {
                     return CompletableFuture.completedFuture(Optional.of(candidate.getName()));
@@ -112,14 +122,23 @@ public class GameService {
     }
 
     public CompletableFuture<Game> createGame(String player1, String player2) {
-        boolean dice = randomSupplier.get().nextDouble() < 0.5;
+        boolean dice = !randomSides || randomSupplier.get().nextDouble() < 0.5;
         final Game game = new Game(UUID.randomUUID(), dice ? player1 : player2, dice ? player2 : player1, dateSupplier.get());
 
-        return cassandra.executeAsync(QueryBuilder.batch(
+        return cassandra.selectAsync(Claim.class, where -> where.limit(CLEARING_CLAIMS_LIMIT), Claim.KEY).thenCompose(claims -> {
+            claims.removeIf(claim -> !claim.getName().equals(player1) && !claim.getName().equals(player2));
+            if (claims.isEmpty()) {
+                return CompletableFuture.completedFuture(null);
+            }
+
+            final Batch batch = QueryBuilder.batch();
+            claims.forEach(claim -> batch.add(cassandra.deleteQuery(claim)));
+            return cassandra.executeAsync(batch);
+        }).thenCompose(rs -> cassandra.executeAsync(QueryBuilder.batch(
                 cassandra.insertQuery(game),
                 cassandra.insertQuery(new Player(player1, null, game.getId())),
                 cassandra.insertQuery(new Player(player2, null, game.getId()))
-        )).thenApply(resultSet -> game);
+        )).thenApply(resultSet -> game));
     }
 
     public CompletableFuture<Game> findGameById(UUID gameId) {
@@ -151,7 +170,7 @@ public class GameService {
     }
 
     protected boolean checkTimeout(Game game) {
-        if (!game.isFinished() && dateSupplier.get().getTime() - game.getTime().getTime() > MOVE_TIMEOUT) {
+        if (!game.isFinished() && dateSupplier.get().getTime() - game.getTime().getTime() > TimeUnit.SECONDS.toMillis(moveTimeoutSec)) {
             final String looser = game.getNextPlayer();
             if (game.getPlayer1().equals(looser)) {
                 game.setResult1(Game.Result.Timeout);

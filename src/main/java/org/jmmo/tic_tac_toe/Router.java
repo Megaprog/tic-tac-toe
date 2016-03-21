@@ -43,7 +43,7 @@ public class Router {
 
         if (!JSON_MIME_TYPE.equals(request.getHeader("Content-Type"))) {
             log.warn("Wrong MIME type " + request.getHeader("Content-Type"));
-            request.response().setStatusCode(400);
+            request.response().setStatusCode(415);
             request.response().end("Requires " + JSON_MIME_TYPE + " MIME type");
             return;
         }
@@ -52,7 +52,7 @@ public class Router {
             final JsonObject responseJson = new JsonObject();
 
             try {
-                log.debug("Routing the request body:\n" + body.toString());
+                log.debug("Client request: " + body.toString());
 
                 final JsonObject requestJson = body.toJsonObject();
 
@@ -69,13 +69,13 @@ public class Router {
                     return;
                 }
 
-                log.debug("Routed to " + controller);
+                log.trace("Routed to " + controller);
 
                 controller.response(requestData).whenComplete(((response, throwable) -> {
                     if (throwable != null) {
                         handleException(throwable, request.response(), responseJson);
                     } else {
-                        log.debug("Response: " + response);
+                        log.trace("Response: " + response);
 
                         if (response != null) {
                             responseJson.put("data", response);

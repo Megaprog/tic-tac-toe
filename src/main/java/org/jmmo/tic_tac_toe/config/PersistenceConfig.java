@@ -13,10 +13,12 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.Resource;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.util.stream.Collectors;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.NoSuchElementException;
+import java.util.Scanner;
+import java.util.regex.Pattern;
 
 @Configuration
 public class PersistenceConfig {
@@ -69,25 +71,45 @@ public class PersistenceConfig {
     public static void truncateTables(Cassandra cassandra) {
         log.info("Truncate database tables");
 
-        cassandra.execute("truncate pending");
+        cassandra.execute("truncate claim");
         cassandra.execute("truncate player");
         cassandra.execute("truncate game");
     }
 
     protected void ddl(Cassandra cassandra, Resource ddlResource) {
-        try {
-            final String ddlStatement = new BufferedReader(new InputStreamReader(ddlResource.getInputStream())).lines().collect(Collectors.joining("\n"));
-
+        readStatements(ddlResource).forEach(ddlStatement -> {
             log.debug("Executing ddl statement:\n" + ddlStatement);
 
             cassandra.execute(ddlStatement);
+        });
+    }
+
+    static final Pattern STATEMENT_DELIMITER = Pattern.compile(";(?=([^']*'[^']*')*[^']*$)");
+
+    protected List<String> readStatements(Resource resource) {
+        final List<String> statements = new ArrayList<>();
+
+        try (final Scanner scanner = new Scanner(resource.getInputStream()).useDelimiter(STATEMENT_DELIMITER)) {
+            while (true) {
+                try {
+                    final String trimmed = scanner.next().trim();
+                    if (!trimmed.isEmpty()) {
+                        statements.add(trimmed + ";");
+                    }
+                }
+                catch (NoSuchElementException e) {
+                    break;
+                }
+            }
         }
         catch (IOException e) {
             throw new RuntimeException(e);
         }
+
+        return statements;
     }
 
-    @Value("ddl/pending.cql")
+    @Value("ddl/claim.cql")
     Resource pending;
 
     @Value("ddl/player.cql")

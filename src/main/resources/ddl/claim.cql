@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS pending (
+CREATE TABLE IF NOT EXISTS claim (
   key text,
   time timestamp,
   name text,
