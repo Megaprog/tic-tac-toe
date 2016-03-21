@@ -2,7 +2,7 @@
 
 Async REST web service using [Vert.x](http://vertx.io/) framework and [Cassandra](http://cassandra.apache.org/) NoSQL data storage.
 
-Cassandra can be downloaded from [DataStax Distribution](http://www.planetcassandra.org/cassandra/) but it is option 
+Cassandra can be downloaded from [DataStax Distribution](http://www.planetcassandra.org/cassandra/) but it is option  
 because game server contains embedded cassandra in self.
 
 ## How to package it?
