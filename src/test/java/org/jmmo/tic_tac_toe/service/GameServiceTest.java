@@ -1,7 +1,7 @@
 package org.jmmo.tic_tac_toe.service;
 
 import org.javatuples.Pair;
-import org.jmmo.tic_tac_toe.AbstractPersistenceIT;
+import org.jmmo.tic_tac_toe.AbstractPersistence;
 import org.jmmo.tic_tac_toe.config.PersistenceConfig;
 import org.jmmo.tic_tac_toe.model.Game;
 import org.jmmo.tic_tac_toe.model.Claim;
@@ -14,7 +14,7 @@ import java.util.UUID;
 
 import static org.junit.Assert.*;
 
-public class GameServiceTest extends AbstractPersistenceIT {
+public class GameServiceTest extends AbstractPersistence {
 
     @Autowired
     GameService gameService;

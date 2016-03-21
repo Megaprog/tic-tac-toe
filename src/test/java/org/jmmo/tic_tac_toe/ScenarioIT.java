@@ -54,7 +54,7 @@ public class ScenarioIT {
 
         Launcher.main(new String[]{"run", "org.jmmo.tic_tac_toe.Server"});
 
-        Thread.sleep(3000);
+        Thread.sleep(Long.parseLong(System.getProperty("ttt.scenario.deploy.time", "12000")));
     }
 
     @Value("http://localhost:${ttt.http.port:8080}")

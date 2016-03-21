@@ -8,7 +8,7 @@ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(classes = ITPersistenceConfig.class)
-public abstract class AbstractPersistenceIT {
+public abstract class AbstractPersistence {
 
     @Autowired
     protected Cassandra cassandra;

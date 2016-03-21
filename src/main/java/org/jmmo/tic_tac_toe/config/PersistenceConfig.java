@@ -31,6 +31,7 @@ public class PersistenceConfig {
                                @Value("${ttt.cassandra.truncate:false}") boolean truncate) throws IOException {
 
         if (embedded) {
+            log.info("Starting embedded cassandra");
             new EmbeddedCassandraService().start();
         }
 
