@@ -29,10 +29,10 @@ java -jar target/tic-tac-toe-1.0-SNAPSHOT-fat.jar -Dttt.config=external.properti
 
 ## Protocol description
 
-Only POST requests and only "application/json" MIME type accepted.
-Server usually returns status codes: 
-200 - ok (additional information in "data" object), 
-400 - client error (description in "error" string), 
+Only POST requests and only "application/json" MIME type accepted.  
+Server usually returns status codes:  
+200 - ok (additional information in "data" object),  
+400 - client error (description in "error" string),  
 500 - server error (server stack trace in "exception" string)
 
 To start the game:
