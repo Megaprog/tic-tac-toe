@@ -131,8 +131,8 @@ Server reply:
             "player1":"player1",
             "player2":"player2",
             "time":1458561075189,
-            "moves":[{"x":1,"y":1},{"x":1,"y":2},{"x":2,"y":0},{"x":2,"y":2},{"x":0,"y":2}]
-            "finished": true,
+            "moves":[{"x":1,"y":1},{"x":1,"y":2},{"x":2,"y":0},{"x":2,"y":2},{"x":0,"y":2}],
+            "finished":true,
             "result1":"Win",
             "result2":"Loss"
         }
