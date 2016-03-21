@@ -5,6 +5,8 @@ Async REST web service using [Vert.x](http://vertx.io/) framework and [Cassandra
 Cassandra can be downloaded from [DataStax Distribution](http://www.planetcassandra.org/cassandra/) but it is option  
 because game server contains embedded cassandra in self.
 
+Default using http port 8080.
+
 ## How to package it?
 
 mvn clean package
