@@ -21,8 +21,8 @@ mvn clean verify
 
 ## How to change configuration?
 
-There is external.properties file in the project root.
-You can copy it and change it how you will.
+There is external.properties file in the project root.  
+You can copy it and change it how you will.  
 Then specify your config location: 
 
 java -jar target/tic-tac-toe-1.0-SNAPSHOT-fat.jar -Dttt.config=external.properties
