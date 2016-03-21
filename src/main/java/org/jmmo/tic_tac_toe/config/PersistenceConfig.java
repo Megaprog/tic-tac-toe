@@ -5,7 +5,6 @@ import com.datastax.driver.core.DataType;
 import com.datastax.driver.core.TupleType;
 import org.apache.cassandra.service.EmbeddedCassandraService;
 import org.jmmo.sc.Cassandra;
-import org.jmmo.sc.EntityPool;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -14,6 +13,8 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.Resource;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -32,10 +33,10 @@ public class PersistenceConfig {
 
         if (embedded) {
             log.info("Starting embedded cassandra");
+            Files.createDirectories(Paths.get("target"));
             new EmbeddedCassandraService().start();
         }
 
-        final EntityPool entityPool = new EntityPool();
         final Cassandra cassandra = createCassandra(hosts);
 
         initKeyspace(cassandra, keyspace);
